@@ -6,19 +6,82 @@ output: html_document
 ---
 # Синопсис
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+Средний размер почтового сообщения, которое не является СПАМ'ом и не содержит вирусов, составляет примерно 40Kбайт.
 
 # Обработка данных
-```{r}
-summary(cars)
+
+Анализ выполнен на основе данных о размерах очищенных от спам и вирусов почтовых сообщений 40 почтовых доменов в системе SPAMGUN за период с 25 января 2016 г. 
+по 04 февраля 2016 г. Исходные данные представляют собой CSV-файл, в первой позиции каждой строки которого указывается имя домена и далее через запятую размеры входящих сообщений.
+
+Данные на основе которых выполнен анализ находятся [здесь](http://www.spamgun.ru/msg_size_by_domain.csv) . 
+
+```{r, load_data, echo=FALSE}
+# read data
+conn <- file("msg_size_by_domain.csv")
+dat <- readLines(conn)
+
+fin <- list()
+mx <- matrix(nrow=0, ncol=4)
+dom_vec <- c()
+sizes_bulk <- c()
+
+# put all data into a list
+for (i in 1:length(dat)) {
+  tmp <- dat[[i]]
+  a <- strsplit(tmp, ",")
+  
+  domain <- a[[1]][1]
+  dom_vec[i] <- domain
+  
+  sizes <- as.numeric( a[[1]][2:length(a[[1]])] )
+  sizes_bulk <- c(sizes_bulk, sizes)
+  
+  # find values
+  tmp <- list(domain, sizes, length(sizes), mean(sizes), median(sizes), sd(sizes))
+  names(tmp) <- c("domain", "sizes", "msg_count", "mean", "median", "sd")
+  
+  fin[i] <- list(tmp)
+  # here we can access values like this - fin[[1]]$domain ...
+  
+  mx <- rbind(mx, c(fin[[i]]$msg_count, fin[[i]]$mean, 
+                    fin[[i]]$median, fin[[i]]$sd))
+  
+}
+
+df <- data.frame(mx)
+names(df) <- c("msg_count", "mean", "median", "sd")
 ```
 
 # Вопрос #1 - Каков средний размер почтового сообщения
-You can also embed plots, for example:
+
+Массив данных о размерах сообщений по 40 доменам
 
 ```{r, echo=FALSE}
-plot(cars)
+df
+
+hist(sizes_bulk, main="Частоты размеров сообщений", xlab="размеры сообщений", ylab="частота")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Как видно из гистограммы распределение размеров сообщений представляет собой, разспределение с тяжёлыми хвостами. Имеются значительное количество сообщений размером менее 1MB, также имеются сообщения размером до 50MB, что является ограничением, налагаемым на входящую почту системой SPAMGUN.
 
+Средние значения размера сообщений представлены на следующих графиках.
+
+```{r, msg_means}
+# Plot mean
+plot(df$mean, main="Cреднее значение размера сообщений по доменам", xlab="номер домена", 
+     ylab="средний размер сообщения в байтах",
+     pch=19, col="blue")
+lines(df$mean, col="blue")
+abline(h=mean(df$mean), col="red")
+
+# Plot median
+plot(df$median, main="Медиана размера сообщений по доменам", xlab="номер домена", 
+     ylab="средний размер сообщения (медиана) в байтах",
+     pch=19, col="blue")
+lines(df$median, col="blue")
+abline(h=mean(df$median), col="red")
+txt <- paste("Средний размер сообщения (по медиане) равен", round(mean(df$median),0), "байт", sep=" ")
+text(20, mean(df$median) + 20000, txt)
+```
+
+Исходя из того, что медиана лучше центрирует распределения с тяжёлыми хвостами, в качестве среднего размера собщения следует считать 40KB. Т.е. ровно половина сообщений имеет размер более 40K, в то время, как другая половина менее 40K. 
